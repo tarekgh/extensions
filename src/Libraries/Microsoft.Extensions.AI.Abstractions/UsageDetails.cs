@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Shared.Diagnostics;
 
 namespace Microsoft.Extensions.AI;
@@ -38,6 +39,20 @@ public class UsageDetails
     /// </remarks>
     public long? ReasoningTokenCount { get; set; }
 
+    /// <summary>Gets or sets the number of audio input tokens used.</summary>
+    /// <remarks>
+    /// This property is used only when audio input tokens are involved.
+    /// </remarks>
+    [Experimental("MEAI001")]
+    public long? InputAudioTokenCount { get; set; }
+
+    /// <summary>Gets or sets the number of text input tokens used.</summary>
+    /// <remarks>
+    /// This property is used only when having audio and text tokens. Otherwise InputTokenCount is sufficient.
+    /// </remarks>
+    [Experimental("MEAI001")]
+    public long? InputTextTokenCount { get; set; }
+
     /// <summary>Gets or sets a dictionary of additional usage counts.</summary>
     /// <remarks>
     /// All values set here are assumed to be summable. For example, when middleware makes multiple calls to an underlying
@@ -57,6 +72,8 @@ public class UsageDetails
         TotalTokenCount = NullableSum(TotalTokenCount, usage.TotalTokenCount);
         CachedInputTokenCount = NullableSum(CachedInputTokenCount, usage.CachedInputTokenCount);
         ReasoningTokenCount = NullableSum(ReasoningTokenCount, usage.ReasoningTokenCount);
+        InputAudioTokenCount = NullableSum(InputAudioTokenCount, usage.InputAudioTokenCount);
+        InputTextTokenCount = NullableSum(InputTextTokenCount, usage.InputTextTokenCount);
 
         if (usage.AdditionalCounts is { } countsToAdd)
         {
@@ -107,6 +124,16 @@ public class UsageDetails
             if (ReasoningTokenCount is { } reasoning)
             {
                 parts.Add($"{nameof(ReasoningTokenCount)} = {reasoning}");
+            }
+
+            if (InputAudioTokenCount is { } inputAudio)
+            {
+                parts.Add($"{nameof(InputAudioTokenCount)} = {inputAudio}");
+            }
+
+            if (InputTextTokenCount is { } inputText)
+            {
+                parts.Add($"{nameof(InputTextTokenCount)} = {inputText}");
             }
 
             if (AdditionalCounts is { } additionalCounts)
