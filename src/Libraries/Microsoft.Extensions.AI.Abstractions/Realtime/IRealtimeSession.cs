@@ -20,10 +20,6 @@ public interface IRealtimeSession : IDisposable
     /// <returns>A task that represents the asynchronous update operation.</returns>
     Task UpdateAsync(RealtimeSessionOptions options, CancellationToken cancellationToken = default);
 
-    /// <summary>Gets a value indicating whether the session is currently connected.</summary>
-    /// <returns><see langword="true"/> if the session is connected; otherwise, <see langword="false"/>.</returns>
-    bool IsConnected { get; }
-
     /// <summary>Sends real-time messages and streams the response.</summary>
     /// <param name="updates">The sequence of real-time messages to send.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
