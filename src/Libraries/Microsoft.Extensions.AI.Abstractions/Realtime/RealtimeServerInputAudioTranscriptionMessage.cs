@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.Extensions.AI;
@@ -36,14 +35,6 @@ public class RealtimeServerInputAudioTranscriptionMessage : RealtimeServerMessag
     /// Gets or sets the ID of the item containing the audio that is being transcribed.
     /// </summary>
     public string? ItemId { get; set; }
-
-    /// <summary>
-    /// Gets or sets the log probabilities for the transcription.
-    /// </summary>
-    /// <remarks>
-    /// Generated only when requested in the session options.
-    /// </remarks>
-    public IEnumerable<LogProbability>? LogProbabilities { get; set; }
 
     /// <summary>
     /// Gets or sets the transcription text of the audio.

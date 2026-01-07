@@ -62,11 +62,6 @@ public class RealtimeSessionOptions
     public string? Voice { get; set; }
 
     /// <summary>
-    /// Gets or sets the log probabilities for input audio transcription.
-    /// </summary>
-    public IEnumerable<LogProbability>? InputAudioTranscriptionLogProbabilities { get; set; }
-
-    /// <summary>
     /// Gets or sets the default system instructions for the session.
     /// </summary>
     public string? Instructions { get; set; }
