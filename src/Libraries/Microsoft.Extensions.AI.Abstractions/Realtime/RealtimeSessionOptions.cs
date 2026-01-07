@@ -78,11 +78,6 @@ public class RealtimeSessionOptions
     public IEnumerable<string>? OutputModalities { get; set; }
 
     /// <summary>
-    /// Gets or sets the prompt template to use.
-    /// </summary>
-    public PromptTemplate? PromptTemplate { get; set; }
-
-    /// <summary>
     /// Gets or sets the tool choice mode for the response.
     /// </summary>
     /// <remarks>

@@ -63,11 +63,6 @@ public class RealtimeClientResponseCreateMessage : RealtimeClientMessage
     public IEnumerable<string>? OutputModalities { get; set; }
 
     /// <summary>
-    /// Gets or sets the prompt template to use for generating the response.
-    /// </summary>
-    public PromptTemplate? PromptTemplate { get; set; }
-
-    /// <summary>
     /// Gets or sets the tool choice mode for the response.
     /// </summary>
     /// <remarks>
