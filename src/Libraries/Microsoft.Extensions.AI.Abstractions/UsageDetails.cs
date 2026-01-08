@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
 using Microsoft.Shared.Diagnostics;
 
 namespace Microsoft.Extensions.AI;
@@ -44,6 +45,7 @@ public class UsageDetails
     /// This property is used only when audio input tokens are involved.
     /// </remarks>
     [Experimental("MEAI001")]
+    [JsonIgnore]
     public long? InputAudioTokenCount { get; set; }
 
     /// <summary>Gets or sets the number of text input tokens used.</summary>
@@ -51,6 +53,7 @@ public class UsageDetails
     /// This property is used only when having audio and text tokens. Otherwise InputTokenCount is sufficient.
     /// </remarks>
     [Experimental("MEAI001")]
+    [JsonIgnore]
     public long? InputTextTokenCount { get; set; }
 
     /// <summary>Gets or sets a dictionary of additional usage counts.</summary>
