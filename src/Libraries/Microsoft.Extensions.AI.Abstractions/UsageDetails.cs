@@ -56,6 +56,22 @@ public class UsageDetails
     [JsonIgnore]
     public long? InputTextTokenCount { get; set; }
 
+    /// <summary>Gets or sets the number of audio output tokens used.</summary>
+    /// <remarks>
+    /// This property is used only when audio output tokens are involved.
+    /// </remarks>
+    [Experimental("MEAI001")]
+    [JsonIgnore]
+    public long? OutputAudioTokenCount { get; set; }
+
+    /// <summary>Gets or sets the number of text output tokens used.</summary>
+    /// <remarks>
+    /// This property is used only when having audio and text tokens. Otherwise OutputTokenCount is sufficient.
+    /// </remarks>
+    [Experimental("MEAI001")]
+    [JsonIgnore]
+    public long? OutputTextTokenCount { get; set; }
+
     /// <summary>Gets or sets a dictionary of additional usage counts.</summary>
     /// <remarks>
     /// All values set here are assumed to be summable. For example, when middleware makes multiple calls to an underlying
