@@ -18,7 +18,6 @@ public class RealtimeClientConversationItemCreateMessage : RealtimeClientMessage
     /// <param name="previousId">The optional ID of the previous conversation item to insert the new one after.</param>
     public RealtimeClientConversationItemCreateMessage(RealtimeContentItem item, string? previousId = null)
     {
-        Type = RealtimeClientMessageType.ConversationItemCreation;
         PreviousId = previousId;
         Item = item;
     }

@@ -18,7 +18,6 @@ public class RealtimeClientInputAudioBufferCommitMessage : RealtimeClientMessage
     /// </summary>
     public RealtimeClientInputAudioBufferCommitMessage()
     {
-        Type = RealtimeClientMessageType.RealtimeInputAudioBufferCommit;
     }
 }
 

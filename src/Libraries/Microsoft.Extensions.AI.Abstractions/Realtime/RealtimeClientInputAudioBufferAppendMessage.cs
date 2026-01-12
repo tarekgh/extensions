@@ -19,7 +19,6 @@ public class RealtimeClientInputAudioBufferAppendMessage : RealtimeClientMessage
     /// <param name="audioContent">The data content containing the audio buffer data to append.</param>
     public RealtimeClientInputAudioBufferAppendMessage(DataContent audioContent)
     {
-        Type = RealtimeClientMessageType.InputAudioBufferAppend;
         Content = audioContent;
     }
 

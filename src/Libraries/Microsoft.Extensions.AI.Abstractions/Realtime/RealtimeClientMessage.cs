@@ -12,11 +12,6 @@ namespace Microsoft.Extensions.AI;
 public class RealtimeClientMessage
 {
     /// <summary>
-    /// Gets or sets the type of the real-time message identify the purpose of the message.
-    /// </summary>
-    public RealtimeClientMessageType Type { get; set; }
-
-    /// <summary>
     /// Gets or sets the optional event ID associated with the message.
     /// This can be used for tracking and correlation purposes.
     /// </summary>

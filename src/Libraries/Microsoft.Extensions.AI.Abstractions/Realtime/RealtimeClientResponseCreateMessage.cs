@@ -17,7 +17,6 @@ public class RealtimeClientResponseCreateMessage : RealtimeClientMessage
     /// </summary>
     public RealtimeClientResponseCreateMessage()
     {
-        Type = RealtimeClientMessageType.ResponseCreate;
     }
 
     /// <summary>
