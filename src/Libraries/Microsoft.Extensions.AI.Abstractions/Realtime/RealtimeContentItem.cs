@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.Extensions.AI;
@@ -20,12 +21,12 @@ public class RealtimeContentItem
     /// </summary>
     /// <param name="id">The ID of the conversation item.</param>
     /// <param name="role">The role of the conversation item.</param>
-    /// <param name="content">The content of the conversation item.</param>
-    public RealtimeContentItem(AIContent content, string? id = null, ChatRole? role = null)
+    /// <param name="contents">The contents of the conversation item.</param>
+    public RealtimeContentItem(IEnumerable<AIContent> contents, string? id = null, ChatRole? role = null)
     {
         Id = id;
         Role = role;
-        Content = content;
+        Contents = contents;
     }
 
     /// <summary>
@@ -49,5 +50,5 @@ public class RealtimeContentItem
     /// <summary>
     /// Gets or sets the content of the conversation item.
     /// </summary>
-    public AIContent Content { get; set; }
+    public IEnumerable<AIContent> Contents { get; set; }
 }
