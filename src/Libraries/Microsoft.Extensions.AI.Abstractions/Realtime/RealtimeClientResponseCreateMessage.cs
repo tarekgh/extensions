@@ -65,33 +65,19 @@ public class RealtimeClientResponseCreateMessage : RealtimeClientMessage
     /// Gets or sets the tool choice mode for the response.
     /// </summary>
     /// <remarks>
-    /// If FunctionToolName or McpToolName is specified, this value will be ignored.
+    /// If AIFunction or HostedMcpServerTool is specified, this value will be ignored.
     /// </remarks>
     public ToolChoiceMode? ToolChoiceMode { get; set; }
 
     /// <summary>
-    /// Gets or sets the name of the function tool to use for the response.
+    /// Gets or sets the AI function to use for the response.
     /// </summary>
-    /// <remarks>
-    /// If specified, the ToolChoiceMode, McpToolName, and McpToolServerLabel values will be ignored.
-    /// </remarks>
-    public string? FunctionToolName { get; set; }
+    public AIFunction? AIFunction { get; set; }
 
     /// <summary>
-    /// Gets or sets the name of the MCP tool to use for the response.
+    /// Gets or sets the hosted MCP server tool configuration for the response.
     /// </summary>
-    /// <remarks>
-    /// If specified, the MCP tool server label will also be required.
-    /// </remarks>
-    public string? McpToolName { get; set; }
-
-    /// <summary>
-    /// Gets or sets the label of the MCP tool server to use for the response.
-    /// </summary>
-    /// <remarks>
-    /// If specified, the MCP tool name will also be required.
-    /// </remarks>
-    public string? McpToolServerLabel { get; set; }
+    public HostedMcpServerTool? HostedMcpServerTool { get; set; }
 
     /// <summary>
     /// Gets or sets the AI tools available for generating the response.
