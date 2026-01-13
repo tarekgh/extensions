@@ -22,7 +22,7 @@ public class RealtimeClientResponseCreateMessage : RealtimeClientMessage
     /// <summary>
     /// Gets or sets the list of the conversation items to create a response for.
     /// </summary>
-    public IEnumerable<RealtimeContentItem>? Items { get; set; }
+    public IList<RealtimeContentItem>? Items { get; set; }
 
     /// <summary>
     /// Gets or sets the output audio options for the response. If null, the default conversation audio options will be used.
@@ -59,7 +59,7 @@ public class RealtimeClientResponseCreateMessage : RealtimeClientMessage
     /// Gets or sets the output modalities for the response. like "text", "audio".
     /// If null, then default conversation modalities will be used.
     /// </summary>
-    public IEnumerable<string>? OutputModalities { get; set; }
+    public IList<string>? OutputModalities { get; set; }
 
     /// <summary>
     /// Gets or sets the tool choice mode for the response.
@@ -82,5 +82,5 @@ public class RealtimeClientResponseCreateMessage : RealtimeClientMessage
     /// <summary>
     /// Gets or sets the AI tools available for generating the response.
     /// </summary>
-    public IEnumerable<AITool>? Tools { get; set; }
+    public IList<AITool>? Tools { get; set; }
 }

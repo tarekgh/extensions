@@ -60,13 +60,13 @@ public class RealtimeServerResponseCreatedMessage : RealtimeServerMessage
     /// <summary>
     /// Gets or sets the list of the conversation items included in the response.
     /// </summary>
-    public IEnumerable<RealtimeContentItem>? Items { get; set; }
+    public IList<RealtimeContentItem>? Items { get; set; }
 
     /// <summary>
     /// Gets or sets the output modalities for the response. like "text", "audio".
     /// If null, then default conversation modalities will be used.
     /// </summary>
-    public IEnumerable<string>? OutputModalities { get; set; }
+    public IList<string>? OutputModalities { get; set; }
 
     /// <summary>
     /// Gets or sets the status of the response.

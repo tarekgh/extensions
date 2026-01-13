@@ -22,7 +22,7 @@ public class RealtimeContentItem
     /// <param name="id">The ID of the conversation item.</param>
     /// <param name="role">The role of the conversation item.</param>
     /// <param name="contents">The contents of the conversation item.</param>
-    public RealtimeContentItem(IEnumerable<AIContent> contents, string? id = null, ChatRole? role = null)
+    public RealtimeContentItem(IList<AIContent> contents, string? id = null, ChatRole? role = null)
     {
         Id = id;
         Role = role;
@@ -50,5 +50,5 @@ public class RealtimeContentItem
     /// <summary>
     /// Gets or sets the content of the conversation item.
     /// </summary>
-    public IEnumerable<AIContent> Contents { get; set; }
+    public IList<AIContent> Contents { get; set; }
 }

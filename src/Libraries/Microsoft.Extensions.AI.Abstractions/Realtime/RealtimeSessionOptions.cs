@@ -75,7 +75,7 @@ public class RealtimeSessionOptions
     /// Gets or sets the output modalities for the response. like "text", "audio".
     /// If null, then default conversation modalities will be used.
     /// </summary>
-    public IEnumerable<string>? OutputModalities { get; set; }
+    public IList<string>? OutputModalities { get; set; }
 
     /// <summary>
     /// Gets or sets the tool choice mode for the response.
@@ -112,7 +112,7 @@ public class RealtimeSessionOptions
     /// <summary>
     /// Gets or sets the AI tools available for generating the response.
     /// </summary>
-    public IEnumerable<AITool>? Tools { get; set; }
+    public IList<AITool>? Tools { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to enable automatic tracing for the session.
