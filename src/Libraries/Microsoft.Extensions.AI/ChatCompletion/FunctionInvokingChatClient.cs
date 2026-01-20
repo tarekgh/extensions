@@ -1432,7 +1432,7 @@ public partial class FunctionInvokingChatClient : DelegatingChatClient
     /// <remarks>
     /// We return the messages containing the approval requests since these are the same messages that originally contained the FunctionCallContent from the downstream service.
     /// We can then use the metadata from these messages when we re-create the FunctionCallContent messages/updates to return to the caller. This way, when we finally do return
-    /// the FuncionCallContent to users it's part of a message/update that contains the same metadata as originally returned to the downstream service.
+    /// the FunctionCallContent to users it's part of a message/update that contains the same metadata as originally returned to the downstream service.
     /// </remarks>
     private (List<ApprovalResultWithRequestMessage>? approvals, List<ApprovalResultWithRequestMessage>? rejections) ExtractAndRemoveApprovalRequestsAndResponses(
         List<ChatMessage> messages)

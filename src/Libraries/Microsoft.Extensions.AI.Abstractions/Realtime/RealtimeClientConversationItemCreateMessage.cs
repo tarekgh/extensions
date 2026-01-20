@@ -32,5 +32,4 @@ public class RealtimeClientConversationItemCreateMessage : RealtimeClientMessage
     /// Gets or sets the conversation item to create.
     /// </summary>
     public RealtimeContentItem Item { get; set; }
-
 }

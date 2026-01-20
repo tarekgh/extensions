@@ -20,6 +20,22 @@ public interface IRealtimeSession : IDisposable
     /// <returns>A task that represents the asynchronous update operation.</returns>
     Task UpdateAsync(RealtimeSessionOptions options, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Gets the current session options.
+    /// </summary>
+    RealtimeSessionOptions? Options { get; }
+
+    /// <summary>
+    /// Injects a client message into the session.
+    /// </summary>
+    /// <param name="message">The client message to inject.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that represents the asynchronous injection operation.</returns>
+    /// <remarks>
+    /// This method allows for the injection of client messages into the session at any time, which can be used to influence the session's behavior or state.
+    /// </remarks>
+    Task InjectClientMessageAsync(RealtimeClientMessage message, CancellationToken cancellationToken = default);
+
     /// <summary>Sends real-time messages and streams the response.</summary>
     /// <param name="updates">The sequence of real-time messages to send.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
@@ -29,4 +45,15 @@ public interface IRealtimeSession : IDisposable
     /// </remarks>
     IAsyncEnumerable<RealtimeServerMessage> GetStreamingResponseAsync(
             IAsyncEnumerable<RealtimeClientMessage> updates, CancellationToken cancellationToken = default);
+
+    /// <summary>Asks the <see cref="IRealtimeSession"/> for an object of the specified type <paramref name="serviceType"/>.</summary>
+    /// <param name="serviceType">The type of object being requested.</param>
+    /// <param name="serviceKey">An optional key that can be used to help identify the target service.</param>
+    /// <returns>The found object, otherwise <see langword="null"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="serviceType"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// The purpose of this method is to allow for the retrieval of strongly typed services that might be provided by the <see cref="IRealtimeSession"/>,
+    /// including itself or any services it might be wrapping.
+    /// </remarks>
+    object? GetService(Type serviceType, object? serviceKey = null);
 }
