@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -47,7 +46,7 @@ namespace Microsoft.Extensions.AI;
 /// </para>
 /// </remarks>
 [Experimental("MEAI001")]
-public partial class FunctionInvokingRealtimeSession : DelegatingRealtimeSession
+public class FunctionInvokingRealtimeSession : DelegatingRealtimeSession
 {
     /// <summary>The <see cref="FunctionInvocationContext"/> for the current function invocation.</summary>
     private static readonly AsyncLocal<FunctionInvocationContext?> _currentContext = new();
@@ -75,6 +74,12 @@ public partial class FunctionInvokingRealtimeSession : DelegatingRealtimeSession
         _activitySource = innerSession.GetService<ActivitySource>();
         FunctionInvocationServices = functionInvocationServices;
     }
+
+    /// <summary>Gets the function invocation processor, creating it lazily.</summary>
+    private FunctionInvocationProcessor Processor => field ??= new FunctionInvocationProcessor(
+        _logger,
+        _activitySource,
+        InvokeFunctionAsync);
 
     /// <summary>
     /// Gets or sets the <see cref="FunctionInvocationContext"/> for the current function invocation.
@@ -247,7 +252,7 @@ public partial class FunctionInvokingRealtimeSession : DelegatingRealtimeSession
         _ = Throw.IfNull(updates);
 
         // Create an activity to group function invocations together for better observability.
-        using Activity? activity = CurrentActivityIsInvokeAgent ? null : _activitySource?.StartActivity(OpenTelemetryConsts.GenAI.OrchestrateToolsName);
+        using Activity? activity = FunctionInvocationHelpers.CurrentActivityIsInvokeAgent ? null : _activitySource?.StartActivity(OpenTelemetryConsts.GenAI.OrchestrateToolsName);
 
         // Track tools from the client messages
         Dictionary<string, AITool>? toolMap = null;
@@ -268,7 +273,7 @@ public partial class FunctionInvokingRealtimeSession : DelegatingRealtimeSession
 
             if (hasFunctionCalls && iterationCount < MaximumIterationsPerRequest)
             {
-                (toolMap, _) = CreateToolsMap(AdditionalTools, InnerSession.Options?.Tools);
+                (toolMap, _) = FunctionInvocationHelpers.CreateToolsMap(AdditionalTools, InnerSession.Options?.Tools);
 
                 // Process function calls
                 iterationCount++;
@@ -325,33 +330,24 @@ public partial class FunctionInvokingRealtimeSession : DelegatingRealtimeSession
         int consecutiveErrorCount,
         CancellationToken cancellationToken)
     {
-        var results = new List<FunctionInvocationResult>();
-        var shouldTerminate = false;
+        var captureCurrentIterationExceptions = consecutiveErrorCount < MaximumConsecutiveErrorsPerRequest;
 
-        if (AllowConcurrentInvocation)
-        {
-            // Invoke functions concurrently
-            results.AddRange(await Task.WhenAll(
-                from callIndex in Enumerable.Range(0, functionCallContents.Count)
-                select InvokeFunctionAsync(functionCallContents[callIndex], toolMap, captureExceptions: true, cancellationToken)).ConfigureAwait(false));
-
-            shouldTerminate = results.Exists(static r => r.Terminate);
-        }
-        else
-        {
-            // Invoke functions serially
-            for (int callIndex = 0; callIndex < functionCallContents.Count; callIndex++)
+        // Use the processor to handle function calls
+        var results = await Processor.ProcessFunctionCallsAsync(
+            functionCallContents,
+            toolMap,
+            AllowConcurrentInvocation,
+            (callContent, aiFunction, _) => new FunctionInvocationContext
             {
-                var result = await InvokeFunctionAsync(functionCallContents[callIndex], toolMap, captureExceptions: false, cancellationToken).ConfigureAwait(false);
-                results.Add(result);
+                Function = aiFunction,
+                Arguments = new(callContent.Arguments) { Services = FunctionInvocationServices },
+                CallContent = callContent
+            },
+            ctx => CurrentContext = ctx,
+            captureCurrentIterationExceptions,
+            cancellationToken).ConfigureAwait(false);
 
-                if (result.Terminate)
-                {
-                    shouldTerminate = true;
-                    break;
-                }
-            }
-        }
+        var shouldTerminate = results.Exists(static r => r.Terminate);
 
         // Update consecutive error count
         bool hasErrors = results.Exists(static r => r.Status == FunctionInvocationStatus.Exception);
@@ -373,46 +369,10 @@ public partial class FunctionInvokingRealtimeSession : DelegatingRealtimeSession
         return (shouldTerminate, newConsecutiveErrorCount, functionResults);
     }
 
-    /// <summary>Invokes a single function.</summary>
-    private async Task<FunctionInvocationResult> InvokeFunctionAsync(
-        FunctionCallContent callContent,
-        Dictionary<string, AITool>? toolMap,
-        bool captureExceptions,
-        CancellationToken cancellationToken)
-    {
-        // Look up the AIFunction for the function call
-        if (toolMap is null ||
-            !toolMap.TryGetValue(callContent.Name, out AITool? tool) || tool is not AIFunction aiFunction)
-        {
-            return new(Terminate: false, FunctionInvocationStatus.NotFound, callContent, Result: null, Exception: null);
-        }
-
-        FunctionInvocationContext context = new()
-        {
-            Function = aiFunction,
-            Arguments = new(callContent.Arguments) { Services = FunctionInvocationServices }
-        };
-
-        try
-        {
-            CurrentContext = context;
-            var result = await InstrumentedInvokeFunctionAsync(context, cancellationToken).ConfigureAwait(false);
-            return new(Terminate: false, FunctionInvocationStatus.RanToCompletion, callContent, Result: result, Exception: null);
-        }
-        catch (Exception ex) when (captureExceptions)
-        {
-            return new(Terminate: false, FunctionInvocationStatus.Exception, callContent, Result: null, Exception: ex);
-        }
-        finally
-        {
-            CurrentContext = null;
-        }
-    }
-
     private static readonly string[] _textModality = { "text" };
 
     /// <summary>Creates function result messages from invocation results.</summary>
-    private List<RealtimeClientMessage> CreateFunctionResultMessages(List<FunctionInvocationResult> results)
+    private List<RealtimeClientMessage> CreateFunctionResultMessages(List<FunctionInvocationResultInternal> results)
     {
         var messages = new List<RealtimeClientMessage>(results.Count);
 
@@ -453,65 +413,6 @@ public partial class FunctionInvokingRealtimeSession : DelegatingRealtimeSession
         return messages;
     }
 
-    /// <summary>Invokes the function with instrumentation.</summary>
-    private async Task<object?> InstrumentedInvokeFunctionAsync(FunctionInvocationContext context, CancellationToken cancellationToken)
-    {
-        _ = Throw.IfNull(context);
-
-        Activity? invokeAgentActivity = CurrentActivityIsInvokeAgent ? Activity.Current : null;
-        ActivitySource? source = invokeAgentActivity?.Source ?? _activitySource;
-
-        using Activity? activity = source?.StartActivity(
-            $"{OpenTelemetryConsts.GenAI.ExecuteToolName} {context.Function.Name}",
-            ActivityKind.Internal,
-            default(ActivityContext),
-            [
-                new(OpenTelemetryConsts.GenAI.Operation.Name, OpenTelemetryConsts.GenAI.ExecuteToolName),
-                new(OpenTelemetryConsts.GenAI.Tool.Type, OpenTelemetryConsts.ToolTypeFunction),
-                new(OpenTelemetryConsts.GenAI.Tool.Call.Id, context.CallContent.CallId),
-                new(OpenTelemetryConsts.GenAI.Tool.Name, context.Function.Name),
-                new(OpenTelemetryConsts.GenAI.Tool.Description, context.Function.Description),
-            ]);
-
-        long startingTimestamp = Stopwatch.GetTimestamp();
-        string methodName = $"{context.Function.Name}";
-
-        if (_logger.IsEnabled(LogLevel.Trace))
-        {
-            LogInvokingSensitive(methodName, context.Arguments?.ToString() ?? string.Empty);
-        }
-        else if (_logger.IsEnabled(LogLevel.Debug))
-        {
-            LogInvoking(methodName);
-        }
-
-        try
-        {
-            var result = await InvokeFunctionAsync(context, cancellationToken).ConfigureAwait(false);
-
-            if (_logger.IsEnabled(LogLevel.Trace))
-            {
-                LogInvocationCompletedSensitive(methodName, GetElapsedTime(startingTimestamp), result?.ToString() ?? string.Empty);
-            }
-            else if (_logger.IsEnabled(LogLevel.Debug))
-            {
-                LogInvocationCompleted(methodName, GetElapsedTime(startingTimestamp));
-            }
-
-            return result;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            LogInvocationCanceled(methodName);
-            throw;
-        }
-        catch (Exception ex)
-        {
-            LogInvocationFailed(methodName, ex);
-            throw;
-        }
-    }
-
     /// <summary>This method will invoke the function within the try block.</summary>
     /// <param name="context">The function invocation context.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -523,79 +424,5 @@ public partial class FunctionInvokingRealtimeSession : DelegatingRealtimeSession
         return FunctionInvoker is { } invoker ?
             invoker(context, cancellationToken) :
             context.Function.InvokeAsync(context.Arguments, cancellationToken);
-    }
-
-    /// <summary>Creates a map of tools from the provided tool collections.</summary>
-    private static (Dictionary<string, AITool>? ToolMap, bool AnyToolsRequireApproval) CreateToolsMap(IList<AITool>? additionalTools, IList<AITool>? messageTools)
-    {
-        var allTools = (additionalTools ?? Enumerable.Empty<AITool>()).Concat(messageTools ?? Enumerable.Empty<AITool>());
-
-        Dictionary<string, AITool>? toolMap = null;
-        bool anyToolsRequireApproval = false;
-
-        foreach (var tool in allTools)
-        {
-            if (tool is AIFunction aiFunction)
-            {
-                (toolMap ??= [])[aiFunction.Name] = tool;
-
-                if (!anyToolsRequireApproval && tool.GetService<ApprovalRequiredAIFunction>() is not null)
-                {
-                    anyToolsRequireApproval = true;
-                }
-            }
-        }
-
-        return (toolMap, anyToolsRequireApproval);
-    }
-
-    /// <summary>Gets a value indicating whether <see cref="Activity.Current"/> represents an "invoke_agent" span.</summary>
-    private static bool CurrentActivityIsInvokeAgent =>
-        Activity.Current?.DisplayName == OpenTelemetryConsts.GenAI.InvokeAgentName;
-
-    private static TimeSpan GetElapsedTime(long startingTimestamp) =>
-#if NET
-        Stopwatch.GetElapsedTime(startingTimestamp);
-#else
-        new((long)((Stopwatch.GetTimestamp() - startingTimestamp) * ((double)TimeSpan.TicksPerSecond / Stopwatch.Frequency)));
-#endif
-
-    [LoggerMessage(LogLevel.Debug, "Invoking {MethodName}.", SkipEnabledCheck = true)]
-    private partial void LogInvoking(string methodName);
-
-    [LoggerMessage(LogLevel.Trace, "Invoking {MethodName}({Arguments}).", SkipEnabledCheck = true)]
-    private partial void LogInvokingSensitive(string methodName, string arguments);
-
-    [LoggerMessage(LogLevel.Debug, "{MethodName} invocation completed. Duration: {Duration}", SkipEnabledCheck = true)]
-    private partial void LogInvocationCompleted(string methodName, TimeSpan duration);
-
-    [LoggerMessage(LogLevel.Trace, "{MethodName} invocation completed. Duration: {Duration}. Result: {Result}", SkipEnabledCheck = true)]
-    private partial void LogInvocationCompletedSensitive(string methodName, TimeSpan duration, string result);
-
-    [LoggerMessage(LogLevel.Debug, "{MethodName} invocation canceled.")]
-    private partial void LogInvocationCanceled(string methodName);
-
-    [LoggerMessage(LogLevel.Error, "{MethodName} invocation failed.")]
-    private partial void LogInvocationFailed(string methodName, Exception error);
-
-    /// <summary>Represents the result of a function invocation.</summary>
-    private readonly record struct FunctionInvocationResult(
-        bool Terminate,
-        FunctionInvocationStatus Status,
-        FunctionCallContent CallContent,
-        object? Result,
-        Exception? Exception);
-
-    /// <summary>Represents the status of a function invocation.</summary>
-    private enum FunctionInvocationStatus
-    {
-        /// <summary>The function was invoked and completed successfully.</summary>
-        RanToCompletion,
-
-        /// <summary>The function was not found.</summary>
-        NotFound,
-
-        /// <summary>The function invocation threw an exception.</summary>
-        Exception,
     }
 }
