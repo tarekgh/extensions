@@ -254,8 +254,7 @@ public class FunctionInvokingRealtimeSession : DelegatingRealtimeSession
         // Create an activity to group function invocations together for better observability.
         using Activity? activity = FunctionInvocationHelpers.CurrentActivityIsInvokeAgent ? null : _activitySource?.StartActivity(OpenTelemetryConsts.GenAI.OrchestrateToolsName);
 
-        // Track tools from the client messages
-        Dictionary<string, AITool>? toolMap = null;
+        // Track function calls from the client messages
         List<FunctionCallContent>? functionCallContents = null;
         int consecutiveErrorCount = 0;
         int iterationCount = 0;
@@ -271,13 +270,19 @@ public class FunctionInvokingRealtimeSession : DelegatingRealtimeSession
                 hasFunctionCalls = ExtractFunctionCalls(responseOutputItemMessage, functionCallContents);
             }
 
-            if (hasFunctionCalls && iterationCount < MaximumIterationsPerRequest)
+            if (hasFunctionCalls)
             {
-                (toolMap, _) = FunctionInvocationHelpers.CreateToolsMap(AdditionalTools, InnerSession.Options?.Tools);
+                if (iterationCount >= MaximumIterationsPerRequest)
+                {
+                    // Log and stop processing function calls - just yield the message
+                    FunctionInvocationLogger.LogMaximumIterationsReached(_logger, MaximumIterationsPerRequest);
+                    yield return message;
+                    continue;
+                }
 
                 // Process function calls
                 iterationCount++;
-                var results = await InvokeFunctionsAsync(functionCallContents!, toolMap, consecutiveErrorCount, cancellationToken).ConfigureAwait(false);
+                var results = await InvokeFunctionsAsync(functionCallContents!, consecutiveErrorCount, cancellationToken).ConfigureAwait(false);
 
                 // Update consecutive error count
                 consecutiveErrorCount = results.NewConsecutiveErrorCount;
@@ -326,10 +331,12 @@ public class FunctionInvokingRealtimeSession : DelegatingRealtimeSession
     /// <summary>Invokes the functions and returns results.</summary>
     private async Task<(bool ShouldTerminate, int NewConsecutiveErrorCount, List<RealtimeClientMessage> FunctionResults)> InvokeFunctionsAsync(
         List<FunctionCallContent> functionCallContents,
-        Dictionary<string, AITool>? toolMap,
         int consecutiveErrorCount,
         CancellationToken cancellationToken)
     {
+        // Compute toolMap to ensure we always use the latest tools
+        var (toolMap, _) = FunctionInvocationHelpers.CreateToolsMap(AdditionalTools, InnerSession.Options?.Tools);
+
         var captureCurrentIterationExceptions = consecutiveErrorCount < MaximumConsecutiveErrorsPerRequest;
 
         // Use the processor to handle function calls
