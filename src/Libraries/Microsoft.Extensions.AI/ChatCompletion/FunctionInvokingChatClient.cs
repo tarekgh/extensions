@@ -309,7 +309,7 @@ public class FunctionInvokingChatClient : DelegatingChatClient
             (responseMessages, var notInvokedApprovals) = ProcessFunctionApprovalResponses(
                 originalMessages, !string.IsNullOrWhiteSpace(options?.ConversationId), toolMessageId: null, functionCallContentFallbackMessageId: null);
             (IList<ChatMessage>? invokedApprovedFunctionApprovalResponses, bool shouldTerminate, consecutiveErrorCount) =
-                await InvokeApprovedFunctionApprovalResponsesAsync(notInvokedApprovals, originalMessages, options, toolMap, consecutiveErrorCount, isStreaming: false, cancellationToken);
+                await InvokeApprovedFunctionApprovalResponsesAsync(notInvokedApprovals, originalMessages, options, consecutiveErrorCount, isStreaming: false, cancellationToken);
 
             if (invokedApprovedFunctionApprovalResponses is not null)
             {
@@ -483,7 +483,7 @@ public class FunctionInvokingChatClient : DelegatingChatClient
 
             // Invoke approved approval responses, which generates some additional FRC wrapped in ChatMessage.
             (IList<ChatMessage>? invokedApprovedFunctionApprovalResponses, bool shouldTerminate, consecutiveErrorCount) =
-                await InvokeApprovedFunctionApprovalResponsesAsync(notInvokedApprovals, originalMessages, options, toolMap, consecutiveErrorCount, isStreaming: true, cancellationToken);
+                await InvokeApprovedFunctionApprovalResponsesAsync(notInvokedApprovals, originalMessages, options, consecutiveErrorCount, isStreaming: true, cancellationToken);
 
             if (invokedApprovedFunctionApprovalResponses is not null)
             {
@@ -1571,7 +1571,6 @@ public class FunctionInvokingChatClient : DelegatingChatClient
         List<ApprovalResultWithRequestMessage>? notInvokedApprovals,
         List<ChatMessage> originalMessages,
         ChatOptions? options,
-        Dictionary<string, AITool>? toolMap,
         int consecutiveErrorCount,
         bool isStreaming,
         CancellationToken cancellationToken)
@@ -1579,6 +1578,9 @@ public class FunctionInvokingChatClient : DelegatingChatClient
         // Check if there are any function calls to do for any approved functions and execute them.
         if (notInvokedApprovals is { Count: > 0 })
         {
+            // Compute the tool map for this invocation
+            var (toolMap, _) = FunctionInvocationHelpers.CreateToolsMap(AdditionalTools, options?.Tools);
+
             // The FRC that is generated here is already added to originalMessages by ProcessFunctionCallsAsync.
             var modeAndMessages = await ProcessFunctionCallsAsync(
                 originalMessages, options, toolMap, notInvokedApprovals.Select(x => x.Response.FunctionCall).ToList(), 0, consecutiveErrorCount, isStreaming, cancellationToken);

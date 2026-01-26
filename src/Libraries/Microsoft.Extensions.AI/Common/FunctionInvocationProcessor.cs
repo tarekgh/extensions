@@ -109,12 +109,17 @@ internal sealed class FunctionInvocationProcessor
         bool captureExceptions,
         CancellationToken cancellationToken)
     {
-        // Look up the AIFunction for the function call
+        // Look up the AIFunction for the function call. If the requested function isn't available, send back an error.
         if (toolMap is null ||
-            !toolMap.TryGetValue(callContent.Name, out AITool? tool) ||
-            tool is not AIFunction aiFunction)
+            !toolMap.TryGetValue(callContent.Name, out AITool? tool))
         {
             FunctionInvocationLogger.LogFunctionNotFound(_logger, callContent.Name);
+            return new(Terminate: false, FunctionInvocationStatus.NotFound, callContent, Result: null, Exception: null);
+        }
+
+        if (tool is not AIFunction aiFunction)
+        {
+            FunctionInvocationLogger.LogNonInvocableFunction(_logger, callContent.Name);
             return new(Terminate: false, FunctionInvocationStatus.NotFound, callContent, Result: null, Exception: null);
         }
 
@@ -214,27 +219,29 @@ internal sealed class FunctionInvocationProcessor
 
             throw;
         }
-
-        bool loggedResult = false;
-        if (enableSensitiveData || traceLoggingEnabled)
+        finally
         {
-            string functionResult = TelemetryHelpers.AsJson(result, context.Function.JsonSerializerOptions);
-
-            if (enableSensitiveData)
+            bool loggedResult = false;
+            if (enableSensitiveData || traceLoggingEnabled)
             {
-                _ = activity?.SetTag(OpenTelemetryConsts.GenAI.Tool.Call.Result, functionResult);
+                string functionResult = TelemetryHelpers.AsJson(result, context.Function.JsonSerializerOptions);
+
+                if (enableSensitiveData)
+                {
+                    _ = activity?.SetTag(OpenTelemetryConsts.GenAI.Tool.Call.Result, functionResult);
+                }
+
+                if (traceLoggingEnabled)
+                {
+                    FunctionInvocationLogger.LogInvocationCompletedSensitive(_logger, context.Function.Name, FunctionInvocationHelpers.GetElapsedTime(startingTimestamp), functionResult);
+                    loggedResult = true;
+                }
             }
 
-            if (traceLoggingEnabled)
+            if (!loggedResult && _logger.IsEnabled(LogLevel.Debug))
             {
-                FunctionInvocationLogger.LogInvocationCompletedSensitive(_logger, context.Function.Name, FunctionInvocationHelpers.GetElapsedTime(startingTimestamp), functionResult);
-                loggedResult = true;
+                FunctionInvocationLogger.LogInvocationCompleted(_logger, context.Function.Name, FunctionInvocationHelpers.GetElapsedTime(startingTimestamp));
             }
-        }
-
-        if (!loggedResult && _logger.IsEnabled(LogLevel.Debug))
-        {
-            FunctionInvocationLogger.LogInvocationCompleted(_logger, context.Function.Name, FunctionInvocationHelpers.GetElapsedTime(startingTimestamp));
         }
 
         return result;

@@ -34,8 +34,9 @@ internal static class FunctionInvocationHelpers
 
     /// <summary>Creates a mapping from tool names to the corresponding tools.</summary>
     /// <param name="toolLists">
-    /// The lists of tools to combine into a single dictionary. Tools from later lists are preferred
-    /// over tools from earlier lists if they have the same name.
+    /// The lists of tools to combine into a single dictionary. Only <see cref="AIFunctionDeclaration"/>
+    /// instances are included. Tools from later lists take precedence over tools from earlier lists
+    /// if they have the same name.
     /// </param>
     /// <returns>A tuple containing the tool map and a flag indicating whether any tools require approval.</returns>
     internal static (Dictionary<string, AITool>? ToolMap, bool AnyRequireApproval) CreateToolsMap(params ReadOnlySpan<IList<AITool>?> toolLists)
@@ -47,12 +48,17 @@ internal static class FunctionInvocationHelpers
         {
             if (toolList?.Count is int count && count > 0)
             {
-                map ??= new(StringComparer.Ordinal);
                 for (int i = 0; i < count; i++)
                 {
                     AITool tool = toolList[i];
-                    anyRequireApproval |= tool.GetService<ApprovalRequiredAIFunction>() is not null;
-                    map[tool.Name] = tool;
+                    if (tool is AIFunctionDeclaration)
+                    {
+                        anyRequireApproval |= tool.GetService<ApprovalRequiredAIFunction>() is not null;
+
+                        // Later lists take precedence (options?.Tools overrides AdditionalTools)
+                        map ??= new(StringComparer.Ordinal);
+                        map[tool.Name] = tool;
+                    }
                 }
             }
         }
