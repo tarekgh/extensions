@@ -91,11 +91,13 @@ public partial class LoggingRealtimeSession : DelegatingRealtimeSession
     /// <inheritdoc/>
     public override async Task InjectClientMessageAsync(RealtimeClientMessage message, CancellationToken cancellationToken = default)
     {
+        _ = Throw.IfNull(message);
+
         if (_logger.IsEnabled(LogLevel.Debug))
         {
             if (_logger.IsEnabled(LogLevel.Trace))
             {
-                LogInjectMessageSensitive(AsJson(message));
+                LogInjectMessageSensitive(GetLoggableString(message));
             }
             else
             {
@@ -178,7 +180,7 @@ public partial class LoggingRealtimeSession : DelegatingRealtimeSession
                 {
                     if (_logger.IsEnabled(LogLevel.Trace))
                     {
-                        LogStreamingServerMessageSensitive(AsJson(message));
+                        LogStreamingServerMessageSensitive(GetLoggableString(message));
                     }
                     else
                     {
@@ -197,6 +199,46 @@ public partial class LoggingRealtimeSession : DelegatingRealtimeSession
         }
     }
 
+    private string GetLoggableString(RealtimeClientMessage message)
+    {
+        string type = message.GetType().Name;
+
+        // If RawRepresentation is already a string (e.g., JSON), include it with the type
+        if (message.RawRepresentation is string s)
+        {
+            return $"{{\"type\":\"{type}\",\"content\":{s}}}";
+        }
+
+        // If RawRepresentation is not null, try to serialize it as JSON
+        if (message.RawRepresentation is not null)
+        {
+            return $"{{\"type\":\"{type}\",\"content\":{AsJson(message.RawRepresentation)}}}";
+        }
+
+        // Otherwise, return a simple JSON with the available properties
+        return $"{{\"type\":\"{type}\",\"eventId\":{(message.EventId is null ? "null" : $"\"{message.EventId}\"")}}}";
+    }
+
+    private string GetLoggableString(RealtimeServerMessage message)
+    {
+        string type = message.Type.ToString();
+
+        // If RawRepresentation is already a string (e.g., JSON), include it with the type
+        if (message.RawRepresentation is string s)
+        {
+            return $"{{\"type\":\"{type}\",\"content\":{s}}}";
+        }
+
+        // If RawRepresentation is not null, try to serialize it as JSON
+        if (message.RawRepresentation is not null)
+        {
+            return $"{{\"type\":\"{type}\",\"content\":{AsJson(message.RawRepresentation)}}}";
+        }
+
+        // Otherwise, return a simple JSON with the available properties
+        return $"{{\"type\":\"{type}\",\"eventId\":{(message.EventId is null ? "null" : $"\"{message.EventId}\"")}}}";
+    }
+
     private async IAsyncEnumerable<RealtimeClientMessage> WrapUpdatesWithLoggingAsync(
         IAsyncEnumerable<RealtimeClientMessage> updates,
         [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -207,7 +249,7 @@ public partial class LoggingRealtimeSession : DelegatingRealtimeSession
             {
                 if (_logger.IsEnabled(LogLevel.Trace))
                 {
-                    LogStreamingClientMessageSensitive(AsJson(message));
+                    LogStreamingClientMessageSensitive(GetLoggableString(message));
                 }
                 else
                 {
