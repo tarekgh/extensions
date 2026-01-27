@@ -136,7 +136,7 @@ public partial class LoggingRealtimeSession : DelegatingRealtimeSession
         IAsyncEnumerator<RealtimeServerMessage> e;
         try
         {
-            e = base.GetStreamingResponseAsync(updates, cancellationToken).GetAsyncEnumerator(cancellationToken);
+            e = base.GetStreamingResponseAsync(WrapUpdatesWithLoggingAsync(updates, cancellationToken), cancellationToken).GetAsyncEnumerator(cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -197,6 +197,28 @@ public partial class LoggingRealtimeSession : DelegatingRealtimeSession
         }
     }
 
+    private async IAsyncEnumerable<RealtimeClientMessage> WrapUpdatesWithLoggingAsync(
+        IAsyncEnumerable<RealtimeClientMessage> updates,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await foreach (var message in updates.WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            if (_logger.IsEnabled(LogLevel.Debug))
+            {
+                if (_logger.IsEnabled(LogLevel.Trace))
+                {
+                    LogStreamingClientMessageSensitive(AsJson(message));
+                }
+                else
+                {
+                    LogStreamingClientMessage();
+                }
+            }
+
+            yield return message;
+        }
+    }
+
     private string AsJson<T>(T value) => TelemetryHelpers.AsJson(value, _jsonSerializerOptions);
 
     [LoggerMessage(LogLevel.Debug, "{MethodName} invoked.")]
@@ -213,6 +235,12 @@ public partial class LoggingRealtimeSession : DelegatingRealtimeSession
 
     [LoggerMessage(LogLevel.Debug, "{MethodName} completed.")]
     private partial void LogCompleted(string methodName);
+
+    [LoggerMessage(LogLevel.Debug, "GetStreamingResponseAsync sending client message.")]
+    private partial void LogStreamingClientMessage();
+
+    [LoggerMessage(LogLevel.Trace, "GetStreamingResponseAsync sending client message: {ClientMessage}")]
+    private partial void LogStreamingClientMessageSensitive(string clientMessage);
 
     [LoggerMessage(LogLevel.Debug, "GetStreamingResponseAsync received server message.")]
     private partial void LogStreamingServerMessage();
